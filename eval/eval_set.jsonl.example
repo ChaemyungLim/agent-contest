@@ -1,0 +1,2 @@
+{"query": "(예시 질문)", "expected_match": true, "expected_doc_id": "official-12", "notes": "공식 FAQ 직매칭"}
+{"query": "(예시 질문, 답변 없을 것)", "expected_match": false, "expected_doc_id": null, "notes": "부서 안내로 빠져야 함"}
