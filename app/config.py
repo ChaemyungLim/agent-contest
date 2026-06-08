@@ -37,8 +37,7 @@ class Settings(BaseSettings):
     # Excel column mapping
     col_question: str = "question"
     col_answer: str = "answer"
-    col_answered_at: str = "answered_at"
-    col_answered_by: str = "answered_by"
+    col_answered_at: str = "수정일자"  # 답변 수정/갱신 시점 (최신성 판단 기준)
 
 
 settings = Settings()

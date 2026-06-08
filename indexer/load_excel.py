@@ -1,7 +1,7 @@
 """엑셀 로드 + 정규화.
 
 입력 컬럼명은 환경변수(app/config.py)로 덮어쓸 수 있다.
-official_faq 엑셀은 answered_at / answered_by가 없을 수 있다 → 선택적.
+official_faq 엑셀은 answered_at(수정일자)이 없을 수 있다 → 선택적.
 """
 from __future__ import annotations
 
@@ -39,7 +39,6 @@ def load_excel(
     q_col = settings.col_question
     a_col = settings.col_answer
     dt_col = settings.col_answered_at
-    by_col = settings.col_answered_by
 
     if q_col not in df.columns or a_col not in df.columns:
         raise ValueError(
@@ -48,13 +47,11 @@ def load_excel(
         )
 
     has_dt = dt_col in df.columns
-    has_by = by_col in df.columns
 
     cutoff_date: date | None = None
     if months_cutoff and source == "history":
         cutoff_date = date.today() - timedelta(days=int(months_cutoff * 30.44))
 
-    default_by = "장기인수팀" if source == "history" else "공식 FAQ"
     n_total = 0
     n_kept = 0
 
@@ -68,7 +65,6 @@ def load_excel(
         answered_at = parse_date(row_dict.get(dt_col)) if has_dt else None
         if cutoff_date and answered_at and answered_at < cutoff_date:
             continue
-        answered_by = _normalize_str(row_dict.get(by_col)) if has_by else ""
 
         yield Hit(
             id=f"{source}-{idx}",
@@ -76,7 +72,6 @@ def load_excel(
             answer=answer,
             source=source,
             answered_at=answered_at,
-            answered_by=answered_by or default_by,
         )
         n_kept += 1
 

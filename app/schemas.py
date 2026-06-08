@@ -14,15 +14,13 @@ class Hit(BaseModel):
     question: str
     answer: str
     source: SourceType
-    answered_at: date | None = None
-    answered_by: str | None = None
+    answered_at: date | None = None  # 수정일자 기준
     score: float = 0.0
 
 
 class SourceInfo(BaseModel):
     type: SourceType
     answered_at: date | None = None
-    answered_by: str | None = None
 
 
 class DepartmentInfo(BaseModel):
