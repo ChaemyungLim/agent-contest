@@ -14,13 +14,15 @@ class Hit(BaseModel):
     question: str
     answer: str
     source: SourceType
-    answered_at: date | None = None  # 수정일자 기준
+    answered_at: date | None = None  # 수정일시 기준
+    ref_no: str | None = None  # 인수톡FAQ일련번호 — 매니저가 원본 추적용
     score: float = 0.0
 
 
 class SourceInfo(BaseModel):
     type: SourceType
     answered_at: date | None = None
+    ref_no: str | None = None
 
 
 class DepartmentInfo(BaseModel):

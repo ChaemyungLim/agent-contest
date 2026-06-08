@@ -65,6 +65,7 @@ def chat(req: ChatRequest) -> ChatResponse:
         source=SourceInfo(
             type=top.source,
             answered_at=top.answered_at,
+            ref_no=top.ref_no,
         ),
         confidence=top.score,
         alternatives=candidates,

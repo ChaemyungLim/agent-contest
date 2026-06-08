@@ -34,10 +34,11 @@ class Settings(BaseSettings):
     # Routing
     departments_yaml: str = "app/routing/departments.yaml"
 
-    # Excel column mapping
-    col_question: str = "question"
-    col_answer: str = "answer"
-    col_answered_at: str = "수정일자"  # 답변 수정/갱신 시점 (최신성 판단 기준)
+    # Excel column mapping (실제 엑셀: 한국어 컬럼명)
+    col_question: str = "인수심사FAQ내용"
+    col_answer: str = "인수심사답변내용"
+    col_answered_at: str = "수정일시"
+    col_ref_no: str = "인수톡FAQ일련번호"  # 매니저가 원본 추적용 일련번호
 
 
 settings = Settings()

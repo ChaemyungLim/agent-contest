@@ -133,6 +133,7 @@ class Searcher:
                     answer=metadata.get("answer", ""),
                     source=metadata.get("source", source),
                     answered_at=parse_date(metadata.get("answered_at")),
+                    ref_no=metadata.get("ref_no") or None,
                     score=similarity,
                 )
             )

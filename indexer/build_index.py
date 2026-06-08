@@ -65,6 +65,7 @@ def _stream_upsert(
                     "answer": r.answer,
                     "source": r.source,
                     "answered_at": r.answered_at.isoformat() if r.answered_at else "",
+                    "ref_no": r.ref_no or "",
                 }
                 for r in batch
             ],

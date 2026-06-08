@@ -39,6 +39,7 @@ def load_excel(
     q_col = settings.col_question
     a_col = settings.col_answer
     dt_col = settings.col_answered_at
+    ref_col = settings.col_ref_no
 
     if q_col not in df.columns or a_col not in df.columns:
         raise ValueError(
@@ -47,6 +48,7 @@ def load_excel(
         )
 
     has_dt = dt_col in df.columns
+    has_ref = ref_col in df.columns
 
     cutoff_date: date | None = None
     if months_cutoff and source == "history":
@@ -65,6 +67,7 @@ def load_excel(
         answered_at = parse_date(row_dict.get(dt_col)) if has_dt else None
         if cutoff_date and answered_at and answered_at < cutoff_date:
             continue
+        ref_no = _normalize_str(row_dict.get(ref_col)) if has_ref else ""
 
         yield Hit(
             id=f"{source}-{idx}",
@@ -72,6 +75,7 @@ def load_excel(
             answer=answer,
             source=source,
             answered_at=answered_at,
+            ref_no=ref_no or None,
         )
         n_kept += 1
 
