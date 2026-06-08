@@ -16,11 +16,13 @@ from app.routing.department import get_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # 워밍업: 모델 + Chroma + BM25 인덱스 + 부서 라우터 미리 로드
-    get_embedder()
-    get_reranker()
+    embedder = get_embedder()
+    reranker = get_reranker()
     get_searcher()
     get_router()
+    # PyTorch lazy init/JIT 워밍업: 첫 실제 요청이 cold-start 페널티 안 받도록
+    embedder.encode_query("워밍업")
+    reranker.score("워밍업", ["워밍업 문장"])
     yield
 
 

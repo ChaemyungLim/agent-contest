@@ -16,6 +16,7 @@ from pathlib import Path
 import chromadb
 import numpy as np
 from chromadb.config import Settings as ChromaSettings
+from chromadb.errors import NotFoundError
 from rank_bm25 import BM25Okapi
 
 from app.config import resolve_path, settings
@@ -91,25 +92,22 @@ class Searcher:
             )
         self.bm25 = BM25Index.load(bm25_path)
 
-        # collections를 시작 시 1회 로드 → 요청마다 get_collection 호출 없음
+        # SourceType → (collection_name, top_k) — 분기 1곳으로 통합
+        self._source_meta: dict[SourceType, tuple[str, int]] = {
+            "official": (settings.collection_official, settings.top_k_official),
+            "history": (settings.collection_history, settings.top_k_history),
+        }
+
         self.collections: dict[str, chromadb.Collection] = {}
-        for name in (settings.collection_official, settings.collection_history):
+        for collection_name, _ in self._source_meta.values():
             try:
-                self.collections[name] = self.chroma.get_collection(name)
-            except (ValueError, Exception) as e:
-                # NotFoundError 류는 collection 미존재 → skip (예: --skip-history)
-                if "does not exist" in str(e).lower() or "not found" in str(e).lower():
-                    continue
-                raise
+                self.collections[collection_name] = self.chroma.get_collection(collection_name)
+            except NotFoundError:
+                # --skip-history 등으로 인덱싱되지 않은 collection은 건너뜀
+                continue
 
     def _dense_one(self, query: str, source: SourceType) -> list[Hit]:
-        """단일 collection에서 dense 검색."""
-        collection_name = (
-            settings.collection_official if source == "official"
-            else settings.collection_history
-        )
-        top_k = settings.top_k_official if source == "official" else settings.top_k_history
-
+        collection_name, top_k = self._source_meta[source]
         collection = self.collections.get(collection_name)
         if collection is None:
             return []
@@ -142,8 +140,7 @@ class Searcher:
         return out
 
     def _sparse_one(self, query: str, source: SourceType, top_k: int) -> list[Hit]:
-        """BM25 결과에서 source 필터링. 부족할 수 있어 over-fetch."""
-        # source 필터 후 top_k를 보장하기 위해 4배 over-fetch
+        # 4배 over-fetch: source 필터 후 top_k 보장. 부족 시 늘려도 BM25는 O(N)이라 영향 미미.
         raw = self.bm25.search(query, top_k=top_k * 4)
         hits: list[Hit] = []
         for idx, score in raw:
@@ -172,7 +169,6 @@ class Searcher:
         return merged
 
     def _rerank(self, query: str, candidates: list[Hit]) -> list[Hit]:
-        """순수 reranker 점수만 매김 (boost 없음). final_top_k로 자름."""
         if not candidates:
             return []
         head = candidates[: settings.rerank_top_k]
@@ -186,25 +182,19 @@ class Searcher:
 
     def search_by_source(self, query: str, source: SourceType) -> list[Hit]:
         """단일 소스 검색 (RRF + reranker, 임계치 미적용)."""
-        top_k = settings.top_k_official if source == "official" else settings.top_k_history
+        _, top_k = self._source_meta[source]
         dense = self._dense_one(query, source)
         sparse = self._sparse_one(query, source, top_k=top_k)
         merged = self._rrf_merge(dense, sparse)
         return self._rerank(query, merged)
 
     def search(self, query: str) -> list[Hit]:
-        """레거시: 두 소스 합쳐 점수순 (eval 백워드 호환 전용).
+        """레거시: 두 소스 합쳐 reranker score 순 (eval 백워드 호환 전용).
 
-        official_boost 적용. chat.py는 search_by_source 사용.
+        chat.py는 search_by_source 사용 (tiered 흐름).
         """
-        official = self.search_by_source(query, "official")
-        history = self.search_by_source(query, "history")
-        if settings.official_boost:
-            official = [
-                h.model_copy(update={"score": h.score + settings.official_boost})
-                for h in official
-            ]
-        merged = sorted(official + history, key=lambda h: h.score, reverse=True)
+        merged = self.search_by_source(query, "official") + self.search_by_source(query, "history")
+        merged.sort(key=lambda h: h.score, reverse=True)
         return merged[: settings.final_top_k]
 
 

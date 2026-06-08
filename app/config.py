@@ -23,10 +23,9 @@ class Settings(BaseSettings):
     # Retrieval
     top_k_official: int = 5
     top_k_history: int = 15
-    rerank_top_k: int = 20
+    rerank_top_k: int = 10  # cross-encoder 호출 비용 비례 (CPU에서 N=10 정도가 균형)
     final_top_k: int = 3
     rrf_k: int = 60
-    official_boost: float = 0.10  # legacy search() 전용 (tiered 모드에선 미사용)
     answer_threshold: float = 0.5
 
     # LLM 종합

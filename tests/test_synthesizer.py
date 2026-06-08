@@ -76,6 +76,22 @@ def test_insufficient_context_with_trailing_text(monkeypatch, make_hit):
     assert result.answer is None
 
 
+@pytest.mark.parametrize(
+    "wrapped",
+    [
+        f"**{INSUFFICIENT_MARKER}**",
+        f'"{INSUFFICIENT_MARKER}"',
+        f"`{INSUFFICIENT_MARKER}`",
+        f"  {INSUFFICIENT_MARKER}\n원인: 사례 부족",
+    ],
+)
+def test_insufficient_context_robust_wrappers(monkeypatch, make_hit, wrapped):
+    """마크다운/따옴표/공백 등으로 wrap된 마커도 escalate 처리."""
+    _patch_llm(monkeypatch, wrapped)
+    result = synthesize("질문", hits=[make_hit(id="a")])
+    assert result.answer is None
+
+
 def test_prompt_includes_hits(monkeypatch, make_hit):
     captured = _patch_llm(monkeypatch, "ok. [참고: #1]")
     hits = [

@@ -37,11 +37,11 @@ SYSTEM_PROMPT = f"""당신은 KB손해보험 장기인수팀 직원입니다.
 - 그 다음 빈 줄 + 마커 그대로 출력: {PARTIAL_MARKER}
 - 마커 아래에 미답변 항목을 한 줄에 하나씩 짧게 나열
 - 부분 답변 전체 합쳐 6문장 이하
-- 사례 인용 [참고: #N]이 없으면 부분 답변 자격 없음 → {INSUFFICIENT_MARKER} 출력
+- 사례 인용 [참고: #N]이 없으면 부분 답변 자격 없음 → 답변 불가로 분류
 
 [답변 완전 불가]
-다음 경우엔 정확히 아래 문자열만 출력 (추가 설명 금지):
-{INSUFFICIENT_MARKER}
+정확히 다음 한 줄만 출력 (마크다운/따옴표/추가 설명 금지):
+INSUFFICIENT_CONTEXT
 - 사례들이 질문의 핵심을 다루지 않을 때
 - 사례 간 심각한 모순으로 일관된 답변이 불가능할 때
 - 사례 정보로는 답변 불가능한 영역의 질문일 때
@@ -59,15 +59,19 @@ class SynthesisResult:
     answer_type: Literal["full", "partial"] | None
 
 
+def _source_tag(hit: Hit) -> str:
+    if hit.source == "official":
+        return "공식FAQ"
+    return f"과거Q&A · {hit.answered_at}" if hit.answered_at else "과거Q&A"
+
+
 def _format_cases(hits: Sequence[Hit]) -> str:
-    lines: list[str] = []
-    for i, h in enumerate(hits, start=1):
-        if h.source == "official":
-            tag = "공식FAQ"
-        else:
-            tag = f"과거Q&A · {h.answered_at}" if h.answered_at else "과거Q&A"
-        lines.append(f"#{i} ({tag})\n질문: {h.question}\n답변: {h.answer}")
-    return "\n\n".join(lines)
+    # ━━ 구분자: 답변 본문에 등장할 가능성이 매우 낮아 case 경계 침범 방지
+    cases = [
+        f"━━ 사례 #{i} ({_source_tag(h)}) ━━\n질문: {h.question}\n답변: {h.answer}"
+        for i, h in enumerate(hits, start=1)
+    ]
+    return "\n\n".join(cases)
 
 
 def _build_user_message(query: str, hits: Sequence[Hit]) -> str:
@@ -79,11 +83,14 @@ def _build_user_message(query: str, hits: Sequence[Hit]) -> str:
 위 사례를 참고해 답변하세요."""
 
 
-def synthesize(query: str, hits: Sequence[Hit]) -> SynthesisResult:
-    """LLM 호출 후 응답을 파싱해 SynthesisResult로 반환.
+def _is_insufficient(response: str) -> bool:
+    """첫 줄에서 마커 검출. 마크다운/따옴표 wrap, 뒤따르는 설명 모두 허용."""
+    first_line = response.split("\n", 1)[0]
+    cleaned = first_line.strip().strip('*"\'` ').upper()
+    return cleaned.startswith(INSUFFICIENT_MARKER)
 
-    호출자는 answer is None을 부서 라우팅 폴백 신호로 처리.
-    """
+
+def synthesize(query: str, hits: Sequence[Hit]) -> SynthesisResult:
     if not hits:
         return SynthesisResult(answer=None, answer_type=None)
 
@@ -95,8 +102,7 @@ def synthesize(query: str, hits: Sequence[Hit]) -> SynthesisResult:
         temperature=0.2,
     ).strip()
 
-    # 응답 변형 허용: "INSUFFICIENT_CONTEXT" 또는 "INSUFFICIENT_CONTEXT 입니다" 등
-    if response.upper().startswith(INSUFFICIENT_MARKER):
+    if _is_insufficient(response):
         return SynthesisResult(answer=None, answer_type=None)
 
     answer_type: Literal["full", "partial"] = (

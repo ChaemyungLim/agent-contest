@@ -35,13 +35,17 @@ def main(model_dir: str = "models/bge-m3") -> int:
         "tokenizer_config.json",
         "special_tokens_map.json",
         "sentencepiece.bpe.model",
-        "pytorch_model.bin",
     ]
     missing = [f for f in required if not (path / f).exists()]
-    if missing:
-        print(f"  ❌ 누락 파일: {missing}")
+    # weights는 pytorch_model.bin 또는 model.safetensors 중 하나
+    has_weights = (path / "pytorch_model.bin").exists() or (path / "model.safetensors").exists()
+    if missing or not has_weights:
+        if missing:
+            print(f"  ❌ 누락 파일: {missing}")
+        if not has_weights:
+            print("  ❌ weights 누락: pytorch_model.bin / model.safetensors 둘 다 없음")
         return 1
-    print(f"  ✅ 필수 파일 {len(required)}개 모두 존재")
+    print(f"  ✅ 필수 파일 {len(required)}개 + weights 존재")
 
     print("\n[2/5] 라이브러리 import")
     try:
