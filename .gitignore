@@ -14,8 +14,9 @@ data/*.csv
 models/*/
 !models/.gitkeep
 
-# 사내망 반입용 청크 (각 ~1GB, 절대 git에 안 올라가게)
+# 사내망 반입용 청크 (절대 git에 안 올라가게)
 _import_chunks/
+_import_chunks_reranker/
 
 eval/eval_set.jsonl
 eval/results/
